@@ -1,0 +1,47 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/mongodb-binaries
+          key: mongod-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+      # Without the rotaVersion write, two approvals can each pass their checks
+      # and commit. Confirm the suite notices.
+      - name: The double booking test can fail
+        working-directory: server
+        run: |
+          sed -i 's/await User.updateMany(/await (async (..._args: unknown[]) => undefined)(/' src/swaps.ts
+          git diff --exit-code --quiet src/swaps.ts && { echo "the edit did not apply"; exit 1; }
+          if npx vitest run -t 'cannot double book'; then
+            echo "approvals without the guard passed, so the test checks nothing"
+            exit 1
+          fi
+          git checkout src/swaps.ts
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t shift-swaps .
+      - name: The image loads the app
+        run: docker run --rm shift-swaps node -e "require('./server/dist/app.js')"
