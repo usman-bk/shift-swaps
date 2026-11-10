@@ -221,6 +221,11 @@ describe('rest between shifts', () => {
     await expect(swaps.accept(String(swap._id), null, b, hooks)).resolves.toBeDefined();
   });
 
+  it('allows exactly eleven hours before the next shift too', async () => {
+    const { b, swap } = await takerWith([28, 36], [9, 17]);
+    await expect(swaps.accept(String(swap._id), null, b, hooks)).resolves.toBeDefined();
+  });
+
   it('checks the rest before the incoming shift as well as after it', async () => {
     const { b, swap } = await takerWith([28, 36], [9, 18]);
     await expect(swaps.accept(String(swap._id), null, b, hooks)).rejects.toEqual(
